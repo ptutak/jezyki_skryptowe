@@ -1,6 +1,7 @@
 import os
+import os.path
 import argparse
-from pandas import read_csv
+from pandas import read_csv, ExcelWriter
 from pprint import PrettyPrinter
 
 pprint = PrettyPrinter().pprint
@@ -36,13 +37,33 @@ def get_files_from_folder(folder_name):
 
 
 def process_file(filename):
-    return read_csv(filename, header=None)
+    return read_csv(filename, header=None, names=['node1_temp', 'node2_temp', 'node3_temp'])
+
+
+def compute_mean(dataframe):
+    dataframe['avg_temp'] = dataframe.mean(axis=1)
+
+
+def compute_cooling_speed(dataframe):
+    dataframe['cooling_rate'] = - dataframe.diff(axis=0)['avg_temp']
+
 
 if __name__ == '__main__':
     args = parse_args()
     file_dict = {}
     files = get_files_from_folder(args.input_folder)
+
     for filename in files:
         file_dict[filename] = process_file(filename)
+
+    for dataframe in file_dict.values():
+        compute_mean(dataframe)
+        compute_cooling_speed(dataframe)
+
+    with ExcelWriter(args.output_file) as writer:
+        for filename, dataframe in file_dict.items():
+            dataframe.to_excel(
+                excel_writer=writer,
+                sheet_name=os.path.basename(filename).rstrip('.csv'))
 
     pprint(file_dict)
